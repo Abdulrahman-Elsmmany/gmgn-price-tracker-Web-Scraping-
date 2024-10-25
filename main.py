@@ -50,16 +50,49 @@ def generate_user_agents(count):
     ua = UserAgent()
     return [ua.random for _ in range(count)]
 
+def process_subscript_number(price_text):
+    """
+    Process a number with subscript digits by replacing them with the appropriate
+    number of zeros after the decimal point.
+    Example: 0.0₅8372 becomes 0.0000008372
+    """
+    subscript_map = {
+        '₀': 0, '₁': 1, '₂': 2, '₃': 3, '₄': 4,
+        '₅': 5, '₆': 6, '₇': 7, '₈': 8, '₉': 9
+    }
+    
+    # Find the decimal point position
+    decimal_pos = price_text.find('.')
+    if decimal_pos == -1:
+        return price_text
+    
+    # Split the number into parts before and after decimal
+    before_decimal = price_text[:decimal_pos]
+    after_decimal = price_text[decimal_pos + 1:]
+    
+    # Process the part after decimal
+    result_after_decimal = ""
+    i = 0
+    while i < len(after_decimal):
+        if after_decimal[i] in subscript_map:
+            # Add the specified number of zeros
+            zeros_count = subscript_map[after_decimal[i]]
+            result_after_decimal += '0' * zeros_count
+            # Add the rest of the number after the subscript
+            result_after_decimal += after_decimal[i + 1:]
+            break
+        else:
+            result_after_decimal += after_decimal[i]
+            i += 1
+    
+    # Combine the parts
+    return f"{before_decimal}.{result_after_decimal}"
+
 async def gmgn_web_scraping(i, Token_network, Token_address):
     link = f"https://gmgn.ai/sol/token/{Token_address}"
     returning_list = []
     logging.info(f"Processing row {i}: Token_network={Token_network}, Token_address={Token_address}")
     user_agents = generate_user_agents(10)
-    
-    subscript_map = {
-        '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
-        '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9'
-    }
     
     try:
         async with async_playwright() as p:
@@ -87,11 +120,12 @@ async def gmgn_web_scraping(i, Token_network, Token_address):
                         price_text = await price_element.inner_text()
                         logging.info(f"Raw price text: {price_text}")
                         
+                        # Remove dollar sign and process subscript numbers
                         price_text = price_text.replace('$', '')
-                        for subscript, digit in subscript_map.items():
-                            price_text = price_text.replace(subscript, digit)
+                        processed_price = process_subscript_number(price_text)
                         
-                        price = float(price_text)
+                        # Store as string to maintain full precision
+                        price = processed_price
                         
                         logging.info(f"The Price is: {price}")
                         logging.info(f"The GMGN.ai URL is: {link}")
@@ -125,11 +159,12 @@ async def prepare_data(i, sheet, spreadsheetId, list_of_data):
         return
 
     price, website = list_of_data
-    price = f"${price}"
+    # Format price with dollar sign while maintaining full precision
+    price_str = f"${price}"
     current_time = time.strftime("%Y/%m/%d")
 
     data = [
-        {'range': f'E{i}', 'values': [[price]]},
+        {'range': f'E{i}', 'values': [[price_str]]},
         {'range': f'F{i}', 'values': [[website]]},
         {'range': f'T{i}', 'values': [[current_time]]}
     ]
