@@ -161,12 +161,10 @@ async def prepare_data(i, sheet, spreadsheetId, list_of_data):
     price, website = list_of_data
     # Format price with dollar sign while maintaining full precision
     price_str = f"${price}"
-    current_time = time.strftime("%Y/%m/%d")
 
     data = [
         {'range': f'E{i}', 'values': [[price_str]]},
-        {'range': f'F{i}', 'values': [[website]]},
-        {'range': f'T{i}', 'values': [[current_time]]}
+        {'range': f'F{i}', 'values': [[website]]}
     ]
 
     body = {
